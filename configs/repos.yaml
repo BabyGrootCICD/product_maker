@@ -1,0 +1,31 @@
+repos:
+  - owner: actions
+    name: runner
+    theme: devtools
+  - owner: nektos
+    name: act
+    theme: devtools
+  - owner: hashicorp
+    name: terraform
+    theme: devtools
+  - owner: argoproj
+    name: argo-cd
+    theme: devtools
+  - owner: dagger
+    name: dagger
+    theme: devtools
+  - owner: ckan
+    name: ckan
+    theme: gov-procurement
+  - owner: open-contracting
+    name: standard
+    theme: gov-procurement
+  - owner: GSA
+    name: data.gov
+    theme: gov-procurement
+  - owner: 18F
+    name: identity-idp
+    theme: gov-procurement
+  - owner: mlwmlw
+    name: pcc
+    theme: gov-procurement

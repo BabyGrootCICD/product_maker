@@ -1,0 +1,51 @@
+output_dir: out
+
+opendata:
+  pcc:
+    enabled: true
+    base_url: https://pcc.mlwmlw.org
+    lookback_days: 7
+    min_cases: 100
+    failure_rate_threshold: 0.4
+    categories:
+      - 資訊服務
+      - 勞務類
+      - 財物類
+  samgov:
+    enabled: true
+    base_url: https://api.sam.gov/opportunities/v2/search
+    lookback_days: 7
+    max_requests: 8
+    limit: 1000
+    min_cases: 20
+    pain_proxy_threshold: 0.25
+    naics:
+      - "541511"
+      - "541512"
+      - "518210"
+      - "541519"
+
+issues:
+  min_comments: 10
+  min_thumbs_up: 5
+  max_comments: 500
+  label_bonus:
+    wontfix: 5
+    "help wanted": 3
+  top_k_bodies: 8
+  repos_file: configs/repos.yaml
+
+converge:
+  top_n: 10
+  unmatched_top_n: 3
+  jaccard_threshold: 0.15
+
+crm:
+  digest_label: weekly-digest
+  review_label: to-review
+  signal_label: signal
+
+qual:
+  xai_base_url: https://api.x.ai/v1
+  xai_model: grok-4-1-fast
+  max_outreach_per_run: 10
