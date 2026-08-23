@@ -17,6 +17,7 @@ import (
 	ghclient "github.com/BabyGrootCICD/product_maker/internal/issues/github"
 	"github.com/BabyGrootCICD/product_maker/internal/opendata"
 	"github.com/BabyGrootCICD/product_maker/internal/qual/xai"
+	"github.com/BabyGrootCICD/product_maker/internal/tasks"
 )
 
 type Env struct {
@@ -57,6 +58,12 @@ func (o *Orchestrator) WriteArtifacts(briefing domain.Briefing, openData, issues
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
+	if openData == nil {
+		openData = []domain.Insight{}
+	}
+	if issues == nil {
+		issues = []domain.Insight{}
+	}
 	if err := writeJSON(filepath.Join(dir, "opendata.json"), openData); err != nil {
 		return err
 	}
@@ -68,6 +75,26 @@ func (o *Orchestrator) WriteArtifacts(briefing domain.Briefing, openData, issues
 	}
 	digest := RenderDigest(briefing)
 	return os.WriteFile(filepath.Join(dir, "digest.md"), []byte(digest), 0o644)
+}
+
+func (o *Orchestrator) WriteTasks(ctx context.Context, briefing domain.Briefing) error {
+	path := o.Config.Tasks.Path
+	if path == "" {
+		path = "tasks.md"
+	}
+	week := isoWeek(time.Now())
+	var rater tasks.AxesRater
+	if o.Env.XAIAPIKey != "" {
+		rater = xai.NewClient(o.Config.Qual.XAIBaseURL, o.Env.XAIAPIKey, o.Config.Qual.XAIModel)
+	} else {
+		slog.Info("tasks axes: heuristic only", "reason", "missing XAI_API_KEY")
+	}
+	list, err := tasks.WriteFile(ctx, path, briefing, rater, o.Config.Tasks.AxesTopN, week)
+	if err != nil {
+		return err
+	}
+	slog.Info("tasks written", "path", path, "count", len(list))
+	return nil
 }
 
 func (o *Orchestrator) PublishCRM(ctx context.Context, briefing domain.Briefing) error {

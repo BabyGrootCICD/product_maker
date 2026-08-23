@@ -8,12 +8,15 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/BabyGrootCICD/product_maker/internal/branches"
 	"github.com/BabyGrootCICD/product_maker/internal/config"
 	"github.com/BabyGrootCICD/product_maker/internal/domain"
 	"github.com/BabyGrootCICD/product_maker/internal/pipeline"
 	"github.com/BabyGrootCICD/product_maker/internal/qual/jtbd"
 	"github.com/BabyGrootCICD/product_maker/internal/qual/xai"
+	"github.com/BabyGrootCICD/product_maker/internal/tasks"
 )
 
 func main() {
@@ -33,6 +36,10 @@ func main() {
 		os.Exit(issuesCommand(os.Args[2:]))
 	case "converge":
 		os.Exit(convergeCommand(os.Args[2:]))
+	case "tasks":
+		os.Exit(tasksCommand(os.Args[2:]))
+	case "branches":
+		os.Exit(branchesCommand(os.Args[2:]))
 	case "synthesize":
 		os.Exit(synthesizeCommand(os.Args[2:]))
 	case "jtbd":
@@ -54,6 +61,8 @@ Usage:
   discovery opendata [--config path]
   discovery issues [--config path]
   discovery converge [--config path] [--opendata path] [--issues path]
+  discovery tasks [--config path] [--briefing path] [--out path]
+  discovery branches [--config path] [--tasks path] [--top N] [--dry-run]
   discovery synthesize [--config path] [--briefing path]
   discovery jtbd --transcript path [--out path] [--config path]
 
@@ -61,7 +70,7 @@ Environment:
   GITHUB_TOKEN      GitHub API token (issues + CRM)
   GITHUB_REPOSITORY owner/repo for CRM output
   SAM_API_KEY       SAM.gov public API key
-  XAI_API_KEY       xAI API key (optional outreach / jtbd)
+  XAI_API_KEY       xAI API key (axes / outreach / branches / jtbd)
   GITHUB_STEP_SUMMARY path to write job summary markdown
 `)
 }
@@ -116,6 +125,10 @@ func runCommand(args []string) int {
 	briefing := orch.RunConverge(openData, issues, skips)
 	if err := orch.WriteArtifacts(briefing, openData, issues); err != nil {
 		slog.Error("write artifacts", "err", err)
+		return 1
+	}
+	if err := orch.WriteTasks(ctx, briefing); err != nil {
+		slog.Error("tasks", "err", err)
 		return 1
 	}
 	if err := orch.PublishCRM(ctx, briefing); err != nil {
@@ -184,6 +197,89 @@ func convergeCommand(args []string) int {
 	}
 	briefing := orch.RunConverge(openData, issues, nil)
 	return writeOnly(orch, briefing, openData, issues)
+}
+
+func tasksCommand(args []string) int {
+	fs := flag.NewFlagSet("tasks", flag.ExitOnError)
+	configPath := fs.String("config", "configs/pipeline.yaml", "pipeline config path")
+	briefingPath := fs.String("briefing", "", "briefing json path")
+	outPath := fs.String("out", "", "tasks.md output path")
+	_ = fs.Parse(args)
+
+	orch, err := loadOrchestrator([]string{"--config", *configPath})
+	if err != nil {
+		slog.Error("load config", "err", err)
+		return 1
+	}
+	if *outPath != "" {
+		orch.Config.Tasks.Path = *outPath
+	}
+	path := *briefingPath
+	if path == "" {
+		path = orch.Config.OutputDir + "/briefing.json"
+	}
+	briefing, err := loadBriefing(path)
+	if err != nil {
+		slog.Error("load briefing", "err", err)
+		return 1
+	}
+	if err := orch.WriteTasks(context.Background(), briefing); err != nil {
+		slog.Error("tasks", "err", err)
+		return 1
+	}
+	return 0
+}
+
+func branchesCommand(args []string) int {
+	fs := flag.NewFlagSet("branches", flag.ExitOnError)
+	configPath := fs.String("config", "configs/pipeline.yaml", "pipeline config path")
+	tasksPath := fs.String("tasks", "", "tasks.md path")
+	top := fs.Int("top", 0, "top N non-stale tasks")
+	dryRun := fs.Bool("dry-run", false, "write briefs locally without git push")
+	_ = fs.Parse(args)
+
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		slog.Error("load config", "err", err)
+		return 1
+	}
+	path := *tasksPath
+	if path == "" {
+		path = cfg.Tasks.Path
+	}
+	n := *top
+	if n <= 0 {
+		n = cfg.Tasks.BranchTopN
+	}
+	key := os.Getenv("XAI_API_KEY")
+	if key == "" && !*dryRun {
+		slog.Warn("branches skipped", "reason", "missing XAI_API_KEY")
+		return 0
+	}
+	var gen branches.SolutionGenerator
+	if key != "" {
+		gen = xai.NewClient(cfg.Qual.XAIBaseURL, key, cfg.Qual.XAIModel)
+	} else {
+		gen = stubSolutions{}
+	}
+	err = branches.Run(context.Background(), gen, branches.Options{
+		TasksPath: path,
+		TopN:      n,
+		DryRun:    *dryRun,
+		Week:      tasks.ISOWeek(time.Now()),
+		WorkDir:   ".",
+	})
+	if err != nil {
+		slog.Error("branches", "err", err)
+		return 1
+	}
+	return 0
+}
+
+type stubSolutions struct{}
+
+func (stubSolutions) GenerateSolutionPaths(ctx context.Context, title, summary, pipeline, url string, priority float64) (string, error) {
+	return fmt.Sprintf("## Path 1 (dry-run stub)\n\nApproach: inspect %s\nWhy: priority %.2f\nSteps: 1) read issue 2) prototype\nRisks: unknown\nDone-when: validated hypothesis\n", url, priority), nil
 }
 
 func synthesizeCommand(args []string) int {

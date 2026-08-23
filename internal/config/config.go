@@ -14,6 +14,13 @@ type Config struct {
 	Converge  ConvergeConfig `yaml:"converge"`
 	CRM       CRMConfig      `yaml:"crm"`
 	Qual      QualConfig     `yaml:"qual"`
+	Tasks     TasksConfig    `yaml:"tasks"`
+}
+
+type TasksConfig struct {
+	Path        string `yaml:"path"`
+	AxesTopN    int    `yaml:"axes_top_n"`
+	BranchTopN  int    `yaml:"branch_top_n"`
 }
 
 type OpenDataConfig struct {
@@ -114,6 +121,15 @@ func (c *Config) validate() error {
 	}
 	if c.Qual.MaxOutreachPerRun <= 0 {
 		c.Qual.MaxOutreachPerRun = 10
+	}
+	if c.Tasks.Path == "" {
+		c.Tasks.Path = "tasks.md"
+	}
+	if c.Tasks.AxesTopN <= 0 {
+		c.Tasks.AxesTopN = 15
+	}
+	if c.Tasks.BranchTopN <= 0 {
+		c.Tasks.BranchTopN = 3
 	}
 	return nil
 }

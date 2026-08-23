@@ -44,10 +44,19 @@ func NewClient(baseURL string) *Client {
 
 func (c *Client) Run(ctx context.Context, cfg config.PCCConfig) ([]domain.Insight, error) {
 	stats := make(map[string]*detect.CategoryStats)
-	now := time.Now()
+
+	// Community mirrors can lag months behind wall-clock date.
+	// Coarse-then-refine search avoids hundreds of empty daily fetches.
+	anchor, err := c.findLatestDataDay(ctx, time.Now(), 400)
+	if err != nil {
+		return nil, err
+	}
+	if anchor.IsZero() {
+		return nil, nil
+	}
 
 	for d := 0; d < cfg.LookbackDays; d++ {
-		date := now.AddDate(0, 0, -d).Format("2006-01-02")
+		date := anchor.AddDate(0, 0, -d).Format("2006-01-02")
 		records, err := c.fetchDate(ctx, date)
 		if err != nil {
 			return nil, err
@@ -88,6 +97,77 @@ func (c *Client) Run(ctx context.Context, cfg config.PCCConfig) ([]domain.Insigh
 	}), nil
 }
 
+// findLatestDataDay returns the most recent day (from start, walking back)
+// with at least one tender record. Returns zero time if none found within maxScanDays.
+//
+// Strategy: probe recent days daily, then sample monthly to tolerate mirror lag,
+// then walk forward within the month to recover the true latest day.
+func (c *Client) findLatestDataDay(ctx context.Context, start time.Time, maxScanDays int) (time.Time, error) {
+	if maxScanDays <= 0 {
+		maxScanDays = 400
+	}
+
+	for d := 0; d < 7 && d < maxScanDays; d++ {
+		day := start.AddDate(0, 0, -d)
+		ok, err := c.hasData(ctx, day)
+		if err != nil {
+			return time.Time{}, err
+		}
+		if ok {
+			return day, nil
+		}
+	}
+
+	var hit time.Time
+	for d := 7; d < maxScanDays; d += 30 {
+		day := start.AddDate(0, 0, -d)
+		ok, err := c.hasData(ctx, day)
+		if err != nil {
+			return time.Time{}, err
+		}
+		if ok {
+			hit = day
+			break
+		}
+	}
+	if hit.IsZero() {
+		return time.Time{}, nil
+	}
+
+	// Walk forward from the monthly sample; stop after a short empty streak so we
+	// do not burn requests past the mirror's latest ingest day.
+	latest := hit
+	emptyStreak := 0
+	for i := 1; i <= 29; i++ {
+		day := hit.AddDate(0, 0, i)
+		if day.After(start) {
+			break
+		}
+		ok, err := c.hasData(ctx, day)
+		if err != nil {
+			return time.Time{}, err
+		}
+		if ok {
+			latest = day
+			emptyStreak = 0
+			continue
+		}
+		emptyStreak++
+		if emptyStreak >= 3 {
+			break
+		}
+	}
+	return latest, nil
+}
+
+func (c *Client) hasData(ctx context.Context, day time.Time) (bool, error) {
+	records, err := c.fetchDate(ctx, day.Format("2006-01-02"))
+	if err != nil {
+		return false, err
+	}
+	return len(records) > 0, nil
+}
+
 func (c *Client) fetchDate(ctx context.Context, date string) ([]Record, error) {
 	url := fmt.Sprintf("%s/api/date/tender/%s", c.BaseURL, date)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -116,10 +196,21 @@ func (c *Client) fetchDate(ctx context.Context, date string) ([]Record, error) {
 }
 
 func parseRecords(body []byte) ([]Record, error) {
-	var direct []Record
-	if err := json.Unmarshal(body, &direct); err == nil && len(direct) > 0 {
+	trimmed := strings.TrimSpace(string(body))
+	if trimmed == "" || trimmed == "null" {
+		return nil, nil
+	}
+
+	// Prefer array responses (including empty []). Empty days are valid — do not
+	// fall through to object parsing, which fails with "cannot unmarshal array".
+	if strings.HasPrefix(trimmed, "[") {
+		var direct []Record
+		if err := json.Unmarshal(body, &direct); err != nil {
+			return nil, fmt.Errorf("parse pcc records: %w", err)
+		}
 		return direct, nil
 	}
+
 	var wrapped struct {
 		Records []Record `json:"records"`
 		Data    []Record `json:"data"`

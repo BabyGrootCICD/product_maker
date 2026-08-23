@@ -4,11 +4,11 @@ opendata:
   pcc:
     enabled: true
     base_url: https://pcc.mlwmlw.org
-    lookback_days: 7
-    min_cases: 100
-    failure_rate_threshold: 0.4
+    lookback_days: 14
+    min_cases: 50
+    failure_rate_threshold: 0.15
     categories:
-      - 資訊服務
+      - 工程類
       - 勞務類
       - 財物類
   samgov:
@@ -49,3 +49,8 @@ qual:
   xai_base_url: https://api.x.ai/v1
   xai_model: grok-4-1-fast
   max_outreach_per_run: 10
+
+tasks:
+  path: tasks.md
+  axes_top_n: 15
+  branch_top_n: 3

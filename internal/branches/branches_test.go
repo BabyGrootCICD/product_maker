@@ -1,0 +1,43 @@
+package branches
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/BabyGrootCICD/product_maker/internal/tasks"
+)
+
+func TestShortHashStable(t *testing.T) {
+	a := ShortHash("issues:o/r#1")
+	b := ShortHash("issues:o/r#1")
+	if a != b || len(a) != 8 {
+		t.Fatalf("hash %s %s", a, b)
+	}
+}
+
+func TestBranchName(t *testing.T) {
+	name := BranchName("2026-W34", "issues:o/r#1")
+	if !strings.HasPrefix(name, "discovery/2026-W34/") {
+		t.Fatalf("name=%s", name)
+	}
+}
+
+func TestRenderBrief(t *testing.T) {
+	md := RenderBrief(tasks.Task{
+		Fingerprint: "fp1",
+		Title:       "T",
+		Pipeline:    "issues",
+		Priority:    1.2,
+		Score:       10,
+		Reward:      2,
+		Difficulty:  3,
+		Risk:        2,
+		AxesSource:  "xai",
+		URL:         "https://x",
+		Summary:     "s",
+		Seen:        "2026-W34",
+	}, "## Path 1\nApproach: do thing")
+	if !strings.Contains(md, "fingerprint:fp1") || !strings.Contains(md, "Recommended solution paths") {
+		t.Fatalf("brief=%s", md)
+	}
+}

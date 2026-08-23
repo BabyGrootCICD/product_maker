@@ -12,7 +12,7 @@ func TestLoadPipelineConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.OpenData.PCC.FailureRateThreshold != 0.4 {
+	if cfg.OpenData.PCC.FailureRateThreshold != 0.15 {
 		t.Fatalf("unexpected pcc threshold %v", cfg.OpenData.PCC.FailureRateThreshold)
 	}
 	if cfg.Converge.TopN != 10 {

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 jobs:
@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-go@v5
         with:
@@ -41,4 +43,25 @@ jobs:
             out/issues.json
             out/briefing.json
             out/digest.md
+            tasks.md
           if-no-files-found: warn
+
+      - name: Commit tasks.md
+        run: |
+          git config user.name "discovery-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tasks.md
+          if git diff --staged --quiet; then
+            echo "tasks.md unchanged"
+          else
+            git commit -m "chore: refresh discovery tasks.md"
+            git push
+          fi
+
+      - name: Create discovery branches via xAI
+        env:
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+        run: |
+          git config user.name "discovery-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          go run ./cmd/discovery branches --tasks tasks.md --top 3
