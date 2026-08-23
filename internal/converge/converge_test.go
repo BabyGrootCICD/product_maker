@@ -43,3 +43,29 @@ func TestUnmatchedTopN(t *testing.T) {
 		t.Fatalf("expected 1 unmatched issue, got %d", len(unmatchedIS))
 	}
 }
+
+func BenchmarkBuild(b *testing.B) {
+	od := make([]domain.Insight, 50)
+	for i := range od {
+		od[i] = domain.Insight{
+			Fingerprint: "opendata:pcc:" + string(rune('a'+i%26)),
+			Theme:       "gov-procurement",
+			Score:       float64(i * 10),
+			Keywords:    []string{"procurement", "failure"},
+		}
+	}
+	is := make([]domain.Insight, 50)
+	for i := range is {
+		is[i] = domain.Insight{
+			Fingerprint: "issues:repo#" + string(rune('a'+i%26)),
+			Theme:       "devtools",
+			Score:       float64(i * 8),
+			Keywords:    []string{"performance", "cache"},
+		}
+	}
+	cfg := config.ConvergeConfig{TopN: 20, JaccardThreshold: 0.15}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Build(od, is, cfg, nil)
+	}
+}

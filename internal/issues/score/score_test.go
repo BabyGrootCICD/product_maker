@@ -35,3 +35,30 @@ func TestMaxCommentsFilter(t *testing.T) {
 		t.Fatalf("expected mega issue filtered out")
 	}
 }
+
+func BenchmarkFilterAndScore(b *testing.B) {
+	cfg := Config{
+		MinComments: 10,
+		MinThumbsUp: 5,
+		MaxComments: 500,
+		LabelBonus:  map[string]int{"wontfix": 5, "help wanted": 3},
+	}
+	candidates := make([]IssueCandidate, 200)
+	for i := range candidates {
+		candidates[i] = IssueCandidate{
+			Owner:     "owner",
+			Name:      "repo",
+			Theme:     "devtools",
+			Number:    i,
+			Title:     "Issue",
+			URL:       "https://github.com/owner/repo/issues/1",
+			Comments:  i + 5,
+			ThumbsUp:  i / 2,
+			Labels:    []string{"wontfix"},
+		}
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		FilterAndScore(candidates, cfg)
+	}
+}

@@ -21,11 +21,13 @@ type SolutionGenerator interface {
 }
 
 type Options struct {
-	TasksPath string
-	TopN      int
-	DryRun    bool
-	Week      string
-	WorkDir   string // repo root
+	TasksPath   string
+	TopN        int
+	DryRun      bool
+	Week        string
+	WorkDir     string // repo root
+	IncludeStale bool
+	AutoCreatePR bool
 }
 
 func ShortHash(fingerprint string) string {
@@ -35,6 +37,32 @@ func ShortHash(fingerprint string) string {
 
 func BranchName(week, fingerprint string) string {
 	return fmt.Sprintf("discovery/%s/%s", week, ShortHash(fingerprint))
+}
+
+func IssueBranchName(number int, slug string) string {
+	return fmt.Sprintf("issue/%d-%s", number, slug)
+}
+
+func Slugify(title string) string {
+	slug := strings.ToLower(title)
+	slug = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			return r
+		}
+		if r == ' ' || r == '_' {
+			return '-'
+		}
+		return -1
+	}, slug)
+	for strings.Contains(slug, "--") {
+		slug = strings.ReplaceAll(slug, "--", "-")
+	}
+	slug = strings.Trim(slug, "-")
+	if len(slug) > 40 {
+		slug = slug[:40]
+		slug = strings.TrimRight(slug, "-")
+	}
+	return slug
 }
 
 func RenderBrief(t tasks.Task, solutions string) string {
@@ -80,9 +108,9 @@ func Run(ctx context.Context, gen SolutionGenerator, opts Options) error {
 		return fmt.Errorf("read tasks: %w", err)
 	}
 	list, _ := tasks.Parse(string(md))
-	selected := tasks.SelectTop(list, opts.TopN, true)
+	selected := tasks.SelectTop(list, opts.TopN, !opts.IncludeStale)
 	if len(selected) == 0 {
-		slog.Info("branches: no non-stale tasks")
+		slog.Info("branches: no tasks selected")
 		return nil
 	}
 
@@ -92,8 +120,8 @@ func Run(ctx context.Context, gen SolutionGenerator, opts Options) error {
 	}
 	origRef = strings.TrimSpace(origRef)
 
-	for _, t := range selected {
-		if err := createOrUpdateBranch(ctx, gen, opts, t); err != nil {
+	for i, t := range selected {
+		if err := createOrUpdateBranch(ctx, gen, opts, t, i+1); err != nil {
 			slog.Warn("branch failed", "fingerprint", t.Fingerprint, "err", err)
 			continue
 		}
@@ -105,14 +133,21 @@ func Run(ctx context.Context, gen SolutionGenerator, opts Options) error {
 	return nil
 }
 
-func createOrUpdateBranch(ctx context.Context, gen SolutionGenerator, opts Options, t tasks.Task) error {
+func createOrUpdateBranch(ctx context.Context, gen SolutionGenerator, opts Options, t tasks.Task, index int) error {
 	solutions, err := gen.GenerateSolutionPaths(ctx, t.Title, t.Summary, t.Pipeline, t.URL, t.Priority)
 	if err != nil {
 		return err
 	}
 	brief := RenderBrief(t, solutions)
 	hash := ShortHash(t.Fingerprint)
-	branch := BranchName(opts.Week, t.Fingerprint)
+
+	var branch string
+	if opts.IncludeStale || strings.Contains(t.Fingerprint, "opendata:") || t.Pipeline == "issues" {
+		slug := Slugify(t.Title)
+		branch = IssueBranchName(index, slug)
+	} else {
+		branch = BranchName(opts.Week, t.Fingerprint)
+	}
 	relPath := filepath.Join("discovery", "briefs", hash+".md")
 
 	if opts.DryRun {
@@ -121,7 +156,6 @@ func createOrUpdateBranch(ctx context.Context, gen SolutionGenerator, opts Optio
 		return os.WriteFile(filepath.Join(opts.WorkDir, relPath), []byte(brief), 0o644)
 	}
 
-	// Ensure we start from main/master for a clean brief-only branch tip.
 	base := "main"
 	if err := gitRun(opts.WorkDir, "rev-parse", "--verify", "origin/main"); err != nil {
 		base = "master"
@@ -150,7 +184,6 @@ func createOrUpdateBranch(ctx context.Context, gen SolutionGenerator, opts Optio
 	if err := gitRun(opts.WorkDir, "add", "-f", relPath); err != nil {
 		return err
 	}
-	// Commit only if there is a diff
 	if err := gitRun(opts.WorkDir, "diff", "--staged", "--quiet"); err == nil {
 		slog.Info("branch up to date", "branch", branch)
 	} else {
@@ -163,6 +196,29 @@ func createOrUpdateBranch(ctx context.Context, gen SolutionGenerator, opts Optio
 		return fmt.Errorf("push %s: %w", branch, err)
 	}
 	slog.Info("branch pushed", "branch", branch)
+
+	if opts.AutoCreatePR {
+		title := fmt.Sprintf("Solution for: %s", t.Title)
+		body := fmt.Sprintf(`## Solution for: %s
+- **Original issue**: %s
+- **Pipeline**: %s
+- **Priority**: %.2f
+- **Branch**: %s
+
+### Solution Brief
+%s`, t.Title, t.URL, t.Pipeline, t.Priority, branch, brief)
+		prArgs := []string{"pr", "create", "--draft", "--title", title, "--body", body, "--base", base}
+		cmd := exec.Command("gh", prArgs...)
+		cmd.Dir = opts.WorkDir
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			slog.Warn("auto-create PR failed", "branch", branch, "err", err)
+		} else {
+			slog.Info("PR created", "branch", branch)
+		}
+	}
+
 	return nil
 }
 

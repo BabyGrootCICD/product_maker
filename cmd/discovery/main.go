@@ -236,6 +236,8 @@ func branchesCommand(args []string) int {
 	tasksPath := fs.String("tasks", "", "tasks.md path")
 	top := fs.Int("top", 0, "top N non-stale tasks")
 	dryRun := fs.Bool("dry-run", false, "write briefs locally without git push")
+	all := fs.Bool("all", false, "include all tasks (including stale)")
+	createPR := fs.Bool("create-pr", false, "auto-create draft PRs via gh")
 	_ = fs.Parse(args)
 
 	cfg, err := config.Load(*configPath)
@@ -248,7 +250,9 @@ func branchesCommand(args []string) int {
 		path = cfg.Tasks.Path
 	}
 	n := *top
-	if n <= 0 {
+	if *all {
+		n = 999
+	} else if n <= 0 {
 		n = cfg.Tasks.BranchTopN
 	}
 	key := os.Getenv("XAI_API_KEY")
@@ -263,11 +267,13 @@ func branchesCommand(args []string) int {
 		gen = stubSolutions{}
 	}
 	err = branches.Run(context.Background(), gen, branches.Options{
-		TasksPath: path,
-		TopN:      n,
-		DryRun:    *dryRun,
-		Week:      tasks.ISOWeek(time.Now()),
-		WorkDir:   ".",
+		TasksPath:    path,
+		TopN:         n,
+		DryRun:       *dryRun,
+		Week:         tasks.ISOWeek(time.Now()),
+		WorkDir:      ".",
+		IncludeStale: *all,
+		AutoCreatePR: *createPR,
 	})
 	if err != nil {
 		slog.Error("branches", "err", err)

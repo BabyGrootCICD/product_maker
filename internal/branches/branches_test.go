@@ -22,6 +22,33 @@ func TestBranchName(t *testing.T) {
 	}
 }
 
+func TestIssueBranchName(t *testing.T) {
+	name := IssueBranchName(1, "inverse-targeting")
+	if name != "issue/1-inverse-targeting" {
+		t.Fatalf("name=%s", name)
+	}
+}
+
+func TestSlugify(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"feature request: inverse targeting / exclude", "feature-request-inverse-targeting-exclud"},
+		{"Please support something like allow-failure for a given job", "please-support-something-like-allow-fail"},
+		{"A method to override configuration and meta arguments within a module", "a-method-to-override-configuration-and-m"},
+		{"  spaces  and  spaces  ", "spaces-and-spaces"},
+		{"UPPERCASE", "uppercase"},
+		{"special!@#$%^&*()chars", "specialchars"},
+	}
+	for _, tt := range tests {
+		got := Slugify(tt.input)
+		if got != tt.expected {
+			t.Errorf("Slugify(%q) = %q, want %q", tt.input, got, tt.expected)
+		}
+	}
+}
+
 func TestRenderBrief(t *testing.T) {
 	md := RenderBrief(tasks.Task{
 		Fingerprint: "fp1",

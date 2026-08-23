@@ -1,0 +1,159 @@
+name: Issue Branch Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Run benchmarks
+        run: go test -bench=. -benchmem -run='^$' ./...
+
+      - name: Run coverage
+        run: go test -coverprofile=coverage.out ./...
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+          if-no-files-found: warn
+
+  score-resolution:
+    needs: benchmark
+    runs-on: ubuntu-latest
+    outputs:
+      passed: ${{ steps.score.outputs.passed }}
+      score: ${{ steps.score.outputs.score }}
+      details: ${{ steps.score.outputs.details }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+
+      - name: Run resolution scoring
+        id: score
+        run: |
+          RESULT=$(./scripts/bench-resolution.sh 2>&1 | tail -1)
+          echo "result=$RESULT" >> $GITHUB_OUTPUT
+          PASSED=$(echo "$RESULT" | jq -r '.passed')
+          SCORE=$(echo "$RESULT" | jq -r '.score')
+          DETAILS=$(echo "$RESULT" | jq -c '.details')
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "score=$SCORE" >> $GITHUB_OUTPUT
+          echo "details=$DETAILS" >> $GITHUB_OUTPUT
+
+      - name: Comment score on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const score = context.payload.pull_request;
+            const passed = '${{ steps.score.outputs.passed }}' === 'true';
+            const scoreVal = '${{ steps.score.outputs.score }}';
+            const details = JSON.parse('${{ steps.score.outputs.details }}');
+            const icon = passed ? '✅' : '❌';
+            const body = `## Resolution Score: ${icon} ${scoreVal}/100
+
+            | Metric | Weight | Score |
+            |--------|--------|-------|
+            | Tests pass | 30% | ${details.tests}/30 |
+            | Benchmarks | 20% | ${details.benchmarks}/20 |
+            | Brief completeness | 25% | ${details.brief}/25 |
+            | Prototype completeness | 25% | ${details.code}/25 |
+
+            ${passed ? '**PASSED** - Ready for review' : '**FAILED** - Score must be ≥95% to proceed'}
+            `;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: score.number,
+              body: body
+            });
+
+  notify-or-bug:
+    needs: score-resolution
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract issue URL from PR body
+        id: extract
+        run: |
+          PR_BODY="${{ github.event.pull_request.body }}"
+          ISSUE_URL=$(echo "$PR_BODY" | grep -oP 'Original issue\]: \K.*' || echo "")
+          echo "issue_url=$ISSUE_URL" >> $GITHUB_OUTPUT
+
+      - name: Notify issue issuer (if passed)
+        if: needs.score-resolution.outputs.passed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueUrl = '${{ steps.extract.outputs.issue_url }}';
+            const prUrl = context.payload.pull_request.html_url;
+            const score = '${{ needs.score-resolution.outputs.score }}';
+            if (issueUrl && issueUrl.startsWith('http')) {
+              // Extract owner/repo/number from URL
+              const match = issueUrl.match(/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)/);
+              if (match) {
+                const [, owner, repo, number] = match;
+                await github.rest.issues.createComment({
+                  owner: owner,
+                  repo: repo,
+                  issue_number: parseInt(number),
+                  body: `Hi! We've analyzed your issue and created a proposed solution with a code prototype. The solution passed our review benchmarks (score: ${score}/100). Would you be interested in a 15-minute research interview to discuss this further?\n\nPR: ${prUrl}`
+                });
+                console.log(`Notified ${owner}/${repo}#${number}`);
+              }
+            } else {
+              console.log('No valid issue URL found in PR body');
+            }
+
+      - name: Open bug ticket (if failed)
+        if: needs.score-resolution.outputs.passed == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const score = '${{ needs.score-resolution.outputs.score }}';
+            const details = '${{ needs.score-resolution.outputs.details }}';
+            const prUrl = context.payload.pull_request.html_url;
+            const branch = context.payload.pull_request.head.ref;
+            const body = `## Review Failed
+
+            Branch \`${branch}\` scored ${score}/100 (threshold: 95%).
+
+            ### Score Breakdown
+            \`\`\`json
+            ${details}
+            \`\`\`
+
+            ### PR
+            ${prUrl}
+
+            Please fix the issues and push again.`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Bug: Issue branch ${branch} failed review (score: ${score}%)`,
+              body: body,
+              labels: ['bug', 'review-failed']
+            });
