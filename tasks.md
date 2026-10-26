@@ -1,6 +1,6 @@
 # Discovery Tasks
 
-> Last updated: 2026-W43 · source: discovery pipeline
+> Last updated: 2026-W44 · source: discovery pipeline
 
 ## Ranked backlog
 
@@ -13,7 +13,7 @@
 - **pipeline**: issues
 - **url**: https://github.com/hashicorp/terraform/issues/2253
 - **summary**: repo=hashicorp/terraform comments=166 thumbs=1539
-- **seen**: 2026-W43
+- **seen**: 2026-W44
 
 ### 2. [issues] Please support something like "allow-failure" for a given job
 <!-- fingerprint:issues:actions/runner#2347 -->
@@ -24,29 +24,29 @@
 - **pipeline**: issues
 - **url**: https://github.com/actions/runner/issues/2347
 - **summary**: repo=actions/runner comments=188 thumbs=1467
-- **seen**: 2026-W43
+- **seen**: 2026-W44
 
 ### 3. [issues] A method to override configuration and meta arguments within a module
 <!-- fingerprint:issues:hashicorp/terraform#27360 -->
 - **priority**: 0.91
-- **score**: 2906.0
+- **score**: 2904.0
 - **axes**: reward=2 difficulty=2 risk=1 source=heuristic
 - **rationale**: heuristic axes
 - **pipeline**: issues
 - **url**: https://github.com/hashicorp/terraform/issues/27360
-- **summary**: repo=hashicorp/terraform comments=86 thumbs=1410
-- **seen**: 2026-W43
+- **summary**: repo=hashicorp/terraform comments=86 thumbs=1409
+- **seen**: 2026-W44
 
 ### 4. [issues] Instantiating Multiple Providers with a loop
 <!-- fingerprint:issues:hashicorp/terraform#19932 -->
 - **priority**: 0.76
-- **score**: 2370.0
+- **score**: 2372.0
 - **axes**: reward=2 difficulty=2 risk=1 source=heuristic
 - **rationale**: heuristic axes
 - **pipeline**: issues
 - **url**: https://github.com/hashicorp/terraform/issues/19932
-- **summary**: repo=hashicorp/terraform comments=128 thumbs=1121
-- **seen**: 2026-W43
+- **summary**: repo=hashicorp/terraform comments=128 thumbs=1122
+- **seen**: 2026-W44
 
 ### 5. [issues] Command to early-exit the job and set check conclusion
 <!-- fingerprint:issues:actions/runner#662 -->
@@ -57,7 +57,7 @@
 - **pipeline**: issues
 - **url**: https://github.com/actions/runner/issues/662
 - **summary**: repo=actions/runner comments=69 thumbs=930
-- **seen**: 2026-W43
+- **seen**: 2026-W44
 
 ### 6. [issues] Ability to pass providers to modules in for_each
 <!-- fingerprint:issues:hashicorp/terraform#24476 -->
@@ -68,7 +68,7 @@
 - **pipeline**: issues
 - **url**: https://github.com/hashicorp/terraform/issues/24476
 - **summary**: repo=hashicorp/terraform comments=190 thumbs=782
-- **seen**: 2026-W43
+- **seen**: 2026-W44
 
 ### 7. [issues] allow `-target` to accept globs
 <!-- fingerprint:issues:hashicorp/terraform#2182 -->
@@ -79,7 +79,7 @@
 - **pipeline**: issues
 - **url**: https://github.com/hashicorp/terraform/issues/2182
 - **summary**: repo=hashicorp/terraform comments=60 thumbs=657
-- **seen**: 2026-W43
+- **seen**: 2026-W44
 
 ### 8. [issues] Support for dynamic blocks and meta-arguments
 <!-- fingerprint:issues:hashicorp/terraform#24188 -->
@@ -90,7 +90,7 @@
 - **pipeline**: issues
 - **url**: https://github.com/hashicorp/terraform/issues/24188
 - **summary**: repo=hashicorp/terraform comments=65 thumbs=586
-- **seen**: 2026-W43
+- **seen**: 2026-W44
 
 ### 9. [issues] Using variables in terraform backend config block
 <!-- fingerprint:issues:hashicorp/terraform#13022 -->
@@ -101,31 +101,42 @@
 - **pipeline**: issues
 - **url**: https://github.com/hashicorp/terraform/issues/13022
 - **summary**: repo=hashicorp/terraform comments=315 thumbs=1200
-- **seen**: 2026-W43
+- **seen**: 2026-W44
 
 ### 10. [issues] Support "multi-choice" input type for manual workflows
 <!-- fingerprint:issues:actions/runner#2076 -->
 - **priority**: 0.41
-- **score**: 2564.0
+- **score**: 2566.0
 - **axes**: reward=2 difficulty=2 risk=2 source=heuristic
 - **rationale**: heuristic axes
 - **pipeline**: issues
 - **url**: https://github.com/actions/runner/issues/2076
-- **summary**: repo=actions/runner comments=378 thumbs=1093
-- **seen**: 2026-W43
+- **summary**: repo=actions/runner comments=378 thumbs=1094
+- **seen**: 2026-W44
 
-### 11. [opendata] [samgov] NAICS 541519 pain_proxy 28%
+### 11. [opendata] [samgov] NAICS 541519 pain_proxy 45%
 <!-- fingerprint:opendata:samgov:naics:541519 -->
 - **priority**: 0.03
-- **score**: 14.0
+- **score**: 23.0
 - **axes**: reward=1 difficulty=3 risk=1 source=heuristic
 - **rationale**: heuristic axes
 - **pipeline**: opendata
 - **url**: https://sam.gov/search/
-- **summary**: naics=541519 total=50 proxy=0.28
-- **seen**: 2026-W43
+- **summary**: naics=541519 total=51 proxy=0.45
+- **seen**: 2026-W44
 
-### 12. [issues] Runner pain · stale
+### 12. [opendata] [samgov] NAICS 541512 pain_proxy 52%
+<!-- fingerprint:opendata:samgov:naics:541512 -->
+- **priority**: 0.03
+- **score**: 17.0
+- **axes**: reward=1 difficulty=3 risk=1 source=heuristic
+- **rationale**: heuristic axes
+- **pipeline**: opendata
+- **url**: https://sam.gov/search/
+- **summary**: naics=541512 total=33 proxy=0.52
+- **seen**: 2026-W44
+
+### 13. [issues] Runner pain · stale
 <!-- fingerprint:issues:a/b#1 -->
 - **priority**: 0.10
 - **score**: 40.0
@@ -137,7 +148,7 @@
 - **seen**: 2026-W34
 - **stale**: true
 
-### 13. [opendata] PCC alert · stale
+### 14. [opendata] PCC alert · stale
 <!-- fingerprint:opendata:pcc:x -->
 - **priority**: 0.03
 - **score**: 50.0
@@ -147,18 +158,6 @@
 - **url**: _n/a_
 - **summary**: rate high
 - **seen**: 2026-W34
-- **stale**: true
-
-### 14. [opendata] [samgov] NAICS 541512 pain_proxy 34% · stale
-<!-- fingerprint:opendata:samgov:naics:541512 -->
-- **priority**: 0.03
-- **score**: 10.0
-- **axes**: reward=1 difficulty=3 risk=1 source=heuristic
-- **rationale**: heuristic axes
-- **pipeline**: opendata
-- **url**: https://sam.gov/search/
-- **summary**: naics=541512 total=29 proxy=0.34
-- **seen**: 2026-W38
 - **stale**: true
 
 ### 15. [opendata] [samgov] NAICS 518210 pain_proxy 30% · stale
